@@ -8,6 +8,7 @@ jobs:
   testing:
     strategy:
       matrix:
+        fail-fast: false
         os:
           - ubuntu-latest
           - macos-latest
