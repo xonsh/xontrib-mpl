@@ -45,5 +45,5 @@ jobs:
       run: poetry install --no-interaction -E xonsh
     - name: Run tests
       run: |
-        poetry run xonsh -c "xontrib load distributed"
+        poetry run xonsh -c "xontrib load mpl"
 #        poetry run pytest # no tests yet
