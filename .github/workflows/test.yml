@@ -33,4 +33,4 @@ jobs:
     - name: Run tests
       run: |
         poetry run xonsh -c "xontrib load mpl"
-        poetry run pytest
+#        poetry run pytest
