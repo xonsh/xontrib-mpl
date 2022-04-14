@@ -1,7 +1,7 @@
 
 [tool.poetry]
 name = "xontrib-mpl"
-version = "0.0.1"
+version = "0.0.2"
 description = "Matplotlib hooks for xonsh, including the new 'mpl' alias that displays the current figure on the screen"
 authors = ["Noortheen Raa <jnoortheen@gmail.com>"]
 
