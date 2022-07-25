@@ -5,7 +5,6 @@ from io import BytesIO
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-
 from xonsh.built_ins import XSH
 from xonsh.tools import ON_WINDOWS, print_color
 
