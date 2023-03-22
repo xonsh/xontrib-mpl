@@ -25,7 +25,7 @@ Examples: https://youtu.be/uaje5I22kgE?t=1362
 
 ## Note!
 
-We recommend to use [xontrib-jupyter] that could be used both in web-based Jupyter Notebook and in terminal with Euporia.
+We recommend to use [xontrib-jupyter](https://github.com/xonsh/xontrib-jupyter) that could be used both in web-based Jupyter Notebook and in terminal with Euporia.
 
 ## Credits
 
