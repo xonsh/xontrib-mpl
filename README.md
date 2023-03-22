@@ -1,5 +1,5 @@
 <p align="center">
-Matplotlib hooks for xonsh, including the new 'mpl' alias that displays the current figure on the screen
+Matplotlib hooks for xonsh, including the new 'mpl' alias that displays the current figure on the screen.
 </p>
 
 <p align="center">  
@@ -21,10 +21,11 @@ xpip install xontrib-mpl
 ```bash
 xontrib load mpl
 ```
+Examples: https://youtu.be/uaje5I22kgE?t=1362
 
-## Examples
+## Note!
 
-* https://youtu.be/uaje5I22kgE?t=1362
+We recommend to use [xontrib-jupyter] that could be used both in web-based Jupyter Notebook and in terminal with Euporia.
 
 ## Credits
 
