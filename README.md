@@ -23,9 +23,9 @@ xontrib load mpl
 ```
 Examples: https://youtu.be/uaje5I22kgE?t=1362
 
-## Note!
+## Day to day usage
 
-We recommend to use [xontrib-jupyter](https://github.com/xonsh/xontrib-jupyter) that could be used both in web-based Jupyter Notebook and in terminal with Euporia.
+If you want to use matplotlib day to day with xonsh we recommend to take a look into [xontrib-jupyter](https://github.com/xonsh/xontrib-jupyter) that could be used both in web-based Jupyter Notebook and in terminal with Euporia.
 
 ## Credits
 
