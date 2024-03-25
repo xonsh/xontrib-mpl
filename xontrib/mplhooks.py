@@ -1,4 +1,5 @@
 """Matplotlib hooks, for what its worth."""
+
 import shutil
 from io import BytesIO
 
