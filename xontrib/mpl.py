@@ -1,6 +1,7 @@
 """Matplotlib xontribution. This xontrib should be loaded before matplotlib
 is imported.
 """
+import sys
 
 from xonsh.built_ins import XSH
 from xonsh.tools import unthreadable
@@ -21,8 +22,11 @@ XSH.aliases["mpl"] = mpl
 
 @XSH.builtins.events.on_import_post_exec_module
 def interactive_pyplot(module=None, **kwargs):
-    """This puts pyplot in interactive mode once it is imported."""
+    """Puts matplotlib.pyplot into interactive mode and monkey-patches
+    plt.show() to be non-blocking. Idempotent across re-imports of pyplot."""
     if module.__name__ != "matplotlib.pyplot" or not XSH.env.get("XONSH_INTERACTIVE"):
+        return
+    if getattr(module.show, "_xontrib_mpl_patched", False):
         return
     import matplotlib._pylab_helpers as pylab_helpers
 
@@ -46,10 +50,16 @@ def interactive_pyplot(module=None, **kwargs):
             rtn = plt_show(*args, **kwargs)
         return rtn
 
+    xonsh_show._xontrib_mpl_patched = True
     module.show = xonsh_show
 
-    # register figure drawer
-    @XSH.builtins.events.on_postcommand
-    def redraw_mpl_figure(**kwargs):
-        """Redraws the current matplotlib figure after each command."""
+
+@XSH.builtins.events.on_postcommand
+def redraw_mpl_figure(**kwargs):
+    """Redraws the current matplotlib figure after each command.
+    No-op until matplotlib has actually been imported by the user."""
+    if not XSH.env.get("XONSH_INTERACTIVE"):
+        return
+    pylab_helpers = sys.modules.get("matplotlib._pylab_helpers")
+    if pylab_helpers is not None:
         pylab_helpers.Gcf.draw_all()
