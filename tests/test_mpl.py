@@ -111,3 +111,22 @@ def test_mpl_preserve_standard():
     obs = mplhooks.figure_to_rgb_array(f)
     plt.close(f)
     assert np.all(exp == obs)
+
+
+@pytest.mark.parametrize("minimal", [True, False])
+@pytest.mark.parametrize("width,height", [(0, 0), (1, 1), (0, 24), (80, 0)])
+def test_figure_to_tight_array_handles_degenerate_terminal(width, height, minimal):
+    """Tiny / zero terminal sizes (CI, piped stdout, ``h -= 1`` underflow)
+    must not raise ZeroDivisionError. The output may be unusable but the
+    call should complete cleanly."""
+    f = create_figure()
+    try:
+        arr = mplhooks.figure_to_tight_array(f, width, height, minimal)
+        assert arr.ndim == 3
+        assert arr.shape[2] == 4
+        # After clamping inside the function, output must have non-zero
+        # dimensions on both axes.
+        assert arr.shape[0] > 0
+        assert arr.shape[1] > 0
+    finally:
+        plt.close(f)

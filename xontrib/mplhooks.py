@@ -26,6 +26,21 @@ def _get_buffer(fig, **kwargs):
     return b
 
 
+def _physical_size(canvas):
+    """Return ``(width, height)`` in physical pixels — the size of the buffer
+    that ``savefig(format='raw')`` actually produces.
+
+    matplotlib >= 3.7 split logical vs. physical pixels for HiDPI/Retina:
+    ``get_width_height()`` returns logical, ``get_width_height(physical=True)``
+    returns physical. On older matplotlib there is no such kwarg and the
+    plain call already returns physical pixels.
+    """
+    try:
+        return canvas.get_width_height(physical=True)
+    except TypeError:
+        return canvas.get_width_height()
+
+
 def figure_to_rgb_array(fig, shape=None):
     """Converts figure to a numpy array
 
@@ -49,7 +64,7 @@ def figure_to_rgb_array(fig, shape=None):
         _get_buffer(fig, dpi=fig.dpi, format="raw").read(), dtype="uint8"
     )
     if shape is None:
-        w, h = fig.canvas.get_width_height()
+        w, h = _physical_size(fig.canvas)
         shape = (h, w, 4)
     return array.reshape(*shape)
 
@@ -74,8 +89,18 @@ def figure_to_tight_array(fig, width, height, minimal=True):
     array : np.ndarray
         An RGBA array of the image represented by the figure.
     """
+    # Defensive clamp: terminals can report (0, 0) when stdout is piped or
+    # detached, and show() further subtracts 1 row. Either case would later
+    # hit ZeroDivisionError in `1/height` or in `width * dpi // w`.
+    width = max(width, 2)
+    height = max(height, 2)
+
     # store the properties of the figure in order to restore it
     w, h = fig.canvas.get_width_height()
+    if w <= 0 or h <= 0:
+        raise ValueError(
+            "matplotlib canvas has zero width or height; nothing to render"
+        )
     dpi_fig = fig.dpi
     if minimal:
         # perform reversible operations to produce an optimally tight layout
@@ -87,7 +112,11 @@ def figure_to_tight_array(fig, width, height, minimal=True):
 
         # set the figure dimensions to the terminal size
         fig.set_size_inches(width / dpi, height / dpi, forward=True)
-        width, height = fig.canvas.get_width_height()
+        width, height = _physical_size(fig.canvas)
+        # ``_physical_size`` can still return a degenerate value on exotic
+        # backends or 1×N canvases — keep margin math safe.
+        width = max(width, 1)
+        height = max(height, 2)
 
         # remove all space between subplots
         fig.subplots_adjust(wspace=0, hspace=0)
@@ -100,8 +129,11 @@ def figure_to_tight_array(fig, width, height, minimal=True):
         matplotlib.rcParams.update({"font.size": 0})
     else:
         dpi = min([width * fig.dpi // w, height * fig.dpi // h])
+        dpi = max(int(dpi), 1)  # never set dpi to 0 — fig.dpi=0 is invalid
         fig.dpi = dpi
-        width, height = fig.canvas.get_width_height()
+        width, height = _physical_size(fig.canvas)
+        width = max(width, 1)
+        height = max(height, 1)
 
     # Draw the renderer and get the RGB buffer from the figure
     array = figure_to_rgb_array(fig, shape=(height, width, 4))
@@ -165,6 +197,10 @@ def show():
         if ON_WINDOWS:
             w -= 1  # @melund reports that win terminals are too thin
         h -= 1  # leave space for next prompt
+        # If stdout is piped or the terminal mis-reports its size, clamp to a
+        # sane minimum so figure_to_tight_array doesn't blow up downstream.
+        w = max(w, 2)
+        h = max(h, 2)
         buf = figure_to_tight_array(fig, w, h, minimal)
         s = buf_to_color_str(buf)
         print_color(s)
