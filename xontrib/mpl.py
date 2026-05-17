@@ -3,7 +3,6 @@ is imported.
 """
 
 from xonsh.built_ins import XSH
-from xonsh.lazyasd import lazyobject
 from xonsh.tools import unthreadable
 
 __all__ = ()
@@ -20,20 +19,13 @@ def mpl(args, stdin=None):
 XSH.aliases["mpl"] = mpl
 
 
-@lazyobject
-def pylab_helpers():
-    try:
-        import matplotlib._pylab_helpers as m
-    except ImportError:
-        m = None
-    return m
-
-
 @XSH.builtins.events.on_import_post_exec_module
 def interactive_pyplot(module=None, **kwargs):
     """This puts pyplot in interactive mode once it is imported."""
     if module.__name__ != "matplotlib.pyplot" or not XSH.env.get("XONSH_INTERACTIVE"):
         return
+    import matplotlib._pylab_helpers as pylab_helpers
+
     # Since we are in interactive mode, let's monkey-patch plt.show
     # to try to never block.
     module.ion()
