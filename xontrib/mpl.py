@@ -23,32 +23,21 @@ XSH.aliases["mpl"] = mpl
 @XSH.builtins.events.on_import_post_exec_module
 def interactive_pyplot(module=None, **kwargs):
     """Puts matplotlib.pyplot into interactive mode and monkey-patches
-    plt.show() to be non-blocking. Idempotent across re-imports of pyplot."""
+    plt.show() to default to non-blocking. Idempotent across re-imports."""
     if module.__name__ != "matplotlib.pyplot" or not XSH.env.get("XONSH_INTERACTIVE"):
         return
     if getattr(module.show, "_xontrib_mpl_patched", False):
         return
-    import matplotlib._pylab_helpers as pylab_helpers
 
-    # Since we are in interactive mode, let's monkey-patch plt.show
-    # to try to never block.
     module.ion()
     plt_show = module.show
 
     def xonsh_show(*args, **kwargs):
-        """This is a monkey patched version of matplotlib.pyplot.show()
-        for xonsh's interactive mode. First it tries non-blocking mode
-        (block=False). If for some reason this fails, it will run show
-        in normal blocking mode (block=True).
-        """
-        kwargs.update(block=False)
-        rtn = plt_show(*args, **kwargs)
-        figmanager = pylab_helpers.Gcf.get_active()
-        if figmanager is not None:
-            # unblocked mode failed, try blocking.
-            kwargs.update(block=True)
-            rtn = plt_show(*args, **kwargs)
-        return rtn
+        """Monkey-patched ``matplotlib.pyplot.show()`` for xonsh's interactive
+        mode. Defaults to ``block=False`` so the shell prompt isn't frozen,
+        but honors an explicit ``block=True`` from the caller."""
+        kwargs.setdefault("block", False)
+        return plt_show(*args, **kwargs)
 
     xonsh_show._xontrib_mpl_patched = True
     module.show = xonsh_show

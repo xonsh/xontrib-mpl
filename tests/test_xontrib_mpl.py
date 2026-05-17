@@ -223,9 +223,12 @@ def test_no_postcommand_handler_leak_on_repeated_imports(mpl_xontrib, monkeypatc
 # ---------------------------------------------------------------------------
 
 
-def test_xonsh_show_uses_non_blocking_first(mpl_xontrib, monkeypatch):
-    helpers = _fake_pylab_helpers(active_manager=None)
-    monkeypatch.setitem(sys.modules, "matplotlib._pylab_helpers", helpers)
+def test_xonsh_show_defaults_to_non_blocking(mpl_xontrib, monkeypatch):
+    """The wrapper calls the underlying ``plt.show`` exactly once with
+    ``block=False`` when the user passes no ``block`` kwarg."""
+    monkeypatch.setitem(
+        sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers()
+    )
     pyplot = _fake_pyplot()
     original = pyplot.show
 
@@ -237,13 +240,13 @@ def test_xonsh_show_uses_non_blocking_first(mpl_xontrib, monkeypatch):
     assert kwargs["block"] is False
 
 
-def test_xonsh_show_falls_back_to_blocking_when_figure_active(
-    mpl_xontrib, monkeypatch
-):
-    """When ``Gcf.get_active()`` returns a manager after the non-blocking
-    show, the wrapper retries with ``block=True``. (This is preserved-
-    behaviour test — the upstream logic itself is suspicious, but we want
-    to know if it changes.)"""
+def test_xonsh_show_does_not_retry_when_figure_active(mpl_xontrib, monkeypatch):
+    """REGRESSION test for the historical bug: the wrapper used to inspect
+    ``Gcf.get_active()`` after the non-blocking show and re-invoke
+    ``plt.show(block=True)`` whenever a figure manager was still active —
+    which is the normal case, so the shell got blocked unconditionally
+    (see GitHub issue #1). The wrapper must NOT call the underlying show
+    more than once."""
     sentinel = object()
     helpers = _fake_pylab_helpers(active_manager=sentinel)
     monkeypatch.setitem(sys.modules, "matplotlib._pylab_helpers", helpers)
@@ -253,6 +256,24 @@ def test_xonsh_show_falls_back_to_blocking_when_figure_active(
     mpl_xontrib.module.interactive_pyplot(module=pyplot)
     pyplot.show()
 
-    assert len(original.call_args_list) == 2
+    assert len(original.call_args_list) == 1, (
+        "xonsh_show must not retry with block=True just because there is "
+        "an active figure manager — that re-blocks the shell."
+    )
     assert original.call_args_list[0][1]["block"] is False
-    assert original.call_args_list[1][1]["block"] is True
+
+
+def test_xonsh_show_respects_explicit_block_true(mpl_xontrib, monkeypatch):
+    """If the caller explicitly passes ``block=True``, the wrapper must
+    honor it instead of forcing non-blocking. Only the default is overridden."""
+    monkeypatch.setitem(
+        sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers()
+    )
+    pyplot = _fake_pyplot()
+    original = pyplot.show
+
+    mpl_xontrib.module.interactive_pyplot(module=pyplot)
+    pyplot.show(block=True)
+
+    assert len(original.call_args_list) == 1
+    assert original.call_args_list[0][1]["block"] is True
