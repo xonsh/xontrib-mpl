@@ -102,6 +102,7 @@ def figure_to_tight_array(fig, width, height, minimal=True):
             "matplotlib canvas has zero width or height; nothing to render"
         )
     dpi_fig = fig.dpi
+    rc_overrides = {}
     if minimal:
         # perform reversible operations to produce an optimally tight layout
         dpi = dpi_fig
@@ -124,9 +125,13 @@ def figure_to_tight_array(fig, width, height, minimal=True):
         # leave only one line for top and bottom
         fig.subplots_adjust(bottom=1 / height, top=1 - 1 / height, left=0, right=1)
 
-        # reduce font size in order to reduce text impact on the image
-        font_size = matplotlib.rcParams["font.size"]
-        matplotlib.rcParams.update({"font.size": 0})
+        # Render with font.size=0 to suppress tick labels and other text. We
+        # apply this via ``rc_context`` rather than mutating ``rcParams``
+        # globally — the latter is process-wide state and a concurrent
+        # render on another thread (xonsh background job, GUI mainloop)
+        # would also see font.size=0. ``rc_context`` also restores on
+        # exception, which the previous manual update did not.
+        rc_overrides = {"font.size": 0}
     else:
         dpi = min([width * fig.dpi // w, height * fig.dpi // h])
         dpi = max(int(dpi), 1)  # never set dpi to 0 — fig.dpi=0 is invalid
@@ -136,13 +141,10 @@ def figure_to_tight_array(fig, width, height, minimal=True):
         height = max(height, 1)
 
     # Draw the renderer and get the RGB buffer from the figure
-    array = figure_to_rgb_array(fig, shape=(height, width, 4))
+    with matplotlib.rc_context(rc_overrides):
+        array = figure_to_rgb_array(fig, shape=(height, width, 4))
 
     if minimal:
-        # cleanup after tight layout
-        # clean up rcParams
-        matplotlib.rcParams.update({"font.size": font_size})
-
         # reset the axis positions and figure dimensions
         fig.set_size_inches(w / dpi, h / dpi, forward=True)
         fig.subplots_adjust(**subplotpars)

@@ -113,6 +113,34 @@ def test_mpl_preserve_standard():
     assert np.all(exp == obs)
 
 
+def test_mpl_restores_font_size_on_exception():
+    """``rc_context`` must restore ``font.size`` even if rendering raises.
+    Before the rc_context refactor, ``rcParams.update`` would leak
+    ``font.size=0`` to the rest of the process on any failure inside the
+    render block."""
+    f = create_figure()
+    pre = matplotlib.rcParams["font.size"]
+
+    # Force the inner render to raise by handing a clearly impossible shape.
+    # We monkey-patch figure_to_rgb_array via the module namespace.
+    real = mplhooks.figure_to_rgb_array
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("synthetic render failure")
+
+    mplhooks.figure_to_rgb_array = boom
+    try:
+        with pytest.raises(RuntimeError, match="synthetic render failure"):
+            mplhooks.figure_to_tight_array(f, 100, 100, True)
+    finally:
+        mplhooks.figure_to_rgb_array = real
+        plt.close(f)
+
+    assert matplotlib.rcParams["font.size"] == pre, (
+        "font.size leaked out of figure_to_tight_array after an exception"
+    )
+
+
 @pytest.mark.parametrize("minimal", [True, False])
 @pytest.mark.parametrize("width,height", [(0, 0), (1, 1), (0, 24), (80, 0)])
 def test_figure_to_tight_array_handles_degenerate_terminal(width, height, minimal):
