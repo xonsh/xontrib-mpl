@@ -1,9 +1,9 @@
 
 [tool.poetry]
 name = "xontrib-mpl"
-version = "0.0.2"
+version = "0.2.0"
 description = "Matplotlib hooks for xonsh, including the new 'mpl' alias that displays the current figure on the screen"
-authors = ["Noortheen Raa <jnoortheen@gmail.com>"]
+authors = ["Xonsh Maintainers <xore.004fdbd5c8e6589bdd80944b5b8d4100.show-sender@streams.zulipchat.com>"]
 
 license = "MIT"
 readme = "README.md"
@@ -20,9 +20,10 @@ classifiers = [
     "Topic :: Terminals",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 
@@ -35,11 +36,13 @@ Code = "https://github.com/xonsh/xontrib-mpl"
 
 
 [tool.poetry.dependencies]
-python = ">=3.7"
-xonsh = ">=0.12"
+python = ">=3.11"
+xonsh = ">=0.23.0"
+matplotlib = ">=3.0"
+numpy = ">=1.20"
 
-[tool.poetry.dev-dependencies]
-pytest = "^6.0"
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

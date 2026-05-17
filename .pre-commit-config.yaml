@@ -13,14 +13,22 @@ repos:
     rev: 26.3.1
     hooks:
       - id: black
-        language_version: python3.8
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: "v2.0.0" # Use the sha / tag you want to point at
     hooks:
       - id: mypy
-        args: [ "--allow-untyped-globals", "--ignore-missing-imports" ]
-        additional_dependencies: [ types-all ]
+        args: [
+          "--allow-untyped-globals",
+          "--ignore-missing-imports",
+          # ``xontrib/`` is a PEP 420 namespace package (shared with every
+          # other xontrib-* plugin), so we cannot add an ``__init__.py``.
+          # Without these two flags mypy 2.x discovers ``xontrib/mplhooks.py``
+          # twice — once as ``xontrib.mplhooks`` (from the project root) and
+          # once as ``mplhooks`` (via sys.path) — and aborts.
+          "--explicit-package-bases",
+          "--namespace-packages",
+        ]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -46,7 +54,7 @@ repos:
     hooks:
       - id: pyupgrade
         args:
-          - "--py37-plus"
+          - "--py311-plus"
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v4.4.0
     hooks:
