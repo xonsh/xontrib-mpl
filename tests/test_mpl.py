@@ -5,7 +5,7 @@ np = pytest.importorskip("numpy")
 matplotlib = pytest.importorskip("matplotlib")
 plt = pytest.importorskip("matplotlib.pyplot")
 
-from xontrib import mplhooks
+from xontrib import mplhooks  # noqa: E402  -- must follow importorskip above
 
 skip_if_mpl2 = pytest.mark.skipif(
     matplotlib.__version__.startswith("2"), reason="Bug in matplotlib v2"
@@ -136,9 +136,9 @@ def test_mpl_restores_font_size_on_exception():
         mplhooks.figure_to_rgb_array = real
         plt.close(f)
 
-    assert matplotlib.rcParams["font.size"] == pre, (
-        "font.size leaked out of figure_to_tight_array after an exception"
-    )
+    assert (
+        matplotlib.rcParams["font.size"] == pre
+    ), "font.size leaked out of figure_to_tight_array after an exception"
 
 
 @pytest.mark.parametrize("minimal", [True, False])

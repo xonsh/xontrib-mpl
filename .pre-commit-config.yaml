@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+    rev: 5.13.2
     hooks:
       - id: isort
         args: [
@@ -10,19 +10,18 @@ repos:
         ]
 
   - repo: https://github.com/psf/black
-    rev: 23.1.0
+    rev: 25.1.0
     hooks:
       - id: black
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "v1.1.1" # Use the sha / tag you want to point at
+    rev: "v1.14.1" # Use the sha / tag you want to point at
     hooks:
       - id: mypy
         args: [ "--allow-untyped-globals", "--ignore-missing-imports" ]
-        additional_dependencies: [ types-all ]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
       - id: check-yaml
@@ -32,7 +31,7 @@ repos:
       - id: check-added-large-files
 
   - repo: https://github.com/pycqa/flake8
-    rev: "6.0.0" # pick a git hash / tag to point to
+    rev: "7.1.1" # pick a git hash / tag to point to
     hooks:
       - id: flake8
         args: [ "--ignore=E501,W503,W504,E203,E251,E266,E401,E126,E124,C901" ]
@@ -41,7 +40,7 @@ repos:
         ]
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.3.1
+    rev: v3.19.1
     hooks:
       - id: pyupgrade
         args:

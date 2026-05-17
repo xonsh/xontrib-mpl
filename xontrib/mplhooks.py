@@ -1,4 +1,5 @@
 """Matplotlib hooks, for what its worth."""
+
 import shutil
 from io import BytesIO
 
@@ -131,9 +132,7 @@ def figure_to_tight_array(fig, width, height, minimal=True):
         # hold. For height == 2 we'd compute bottom=top=0.5 which matplotlib
         # rejects with ``ValueError: bottom cannot be >= top``.
         if height >= 3:
-            fig.subplots_adjust(
-                bottom=1 / height, top=1 - 1 / height, left=0, right=1
-            )
+            fig.subplots_adjust(bottom=1 / height, top=1 - 1 / height, left=0, right=1)
         else:
             fig.subplots_adjust(bottom=0, top=1, left=0, right=1)
 

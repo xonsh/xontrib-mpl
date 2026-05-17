@@ -12,6 +12,7 @@ Provides:
 
 This xontrib should be loaded before ``matplotlib`` is imported.
 """
+
 import sys
 
 from xonsh.built_ins import XSH

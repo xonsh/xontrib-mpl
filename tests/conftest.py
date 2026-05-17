@@ -14,6 +14,7 @@ identically on any rasterising backend. Agg is:
 ``conftest.py`` is loaded by pytest before collecting any test module, so
 the ``use`` call lands before ``matplotlib.pyplot`` is imported anywhere.
 """
+
 import matplotlib
 
 matplotlib.use("Agg")

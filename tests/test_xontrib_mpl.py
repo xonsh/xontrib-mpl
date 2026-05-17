@@ -204,9 +204,7 @@ def test_unload_deregisters_env_var(mpl_xontrib):
 def test_unload_restores_patched_plt_show(mpl_xontrib, monkeypatch):
     """If ``interactive_pyplot`` had monkey-patched ``plt.show``, unload
     must restore the original."""
-    monkeypatch.setitem(
-        sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers()
-    )
+    monkeypatch.setitem(sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers())
     pyplot = _fake_pyplot()
     monkeypatch.setitem(sys.modules, "matplotlib.pyplot", pyplot)
     original_show = pyplot.show
@@ -285,9 +283,7 @@ def test_interactive_pyplot_ignores_non_pyplot_modules(mpl_xontrib):
 
 
 def test_interactive_pyplot_skips_when_not_interactive(mpl_xontrib, monkeypatch):
-    monkeypatch.setitem(
-        sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers()
-    )
+    monkeypatch.setitem(sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers())
     pyplot = _fake_pyplot()
     original_show = pyplot.show
     mpl_xontrib.xsh.env["XONSH_INTERACTIVE"] = False
@@ -299,9 +295,7 @@ def test_interactive_pyplot_skips_when_not_interactive(mpl_xontrib, monkeypatch)
 
 
 def test_interactive_pyplot_patches_show(mpl_xontrib, monkeypatch):
-    monkeypatch.setitem(
-        sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers()
-    )
+    monkeypatch.setitem(sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers())
     pyplot = _fake_pyplot()
     original_show = pyplot.show
 
@@ -317,9 +311,7 @@ def test_interactive_pyplot_is_idempotent(mpl_xontrib, monkeypatch):
     """Calling ``interactive_pyplot`` twice for the same pyplot module must
     NOT re-wrap ``module.show`` — the second call is a no-op. Otherwise we
     would stack wrappers on every re-import."""
-    monkeypatch.setitem(
-        sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers()
-    )
+    monkeypatch.setitem(sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers())
     pyplot = _fake_pyplot()
 
     mpl_xontrib.module.interactive_pyplot(module=pyplot)
@@ -338,9 +330,7 @@ def test_no_postcommand_handler_leak_on_repeated_imports(mpl_xontrib, monkeypatc
     of ``matplotlib.pyplot`` (importlib.reload, manual sys.modules
     eviction, Jupyter kernel restart, …) would register one more identical
     handler. The handler-list must stay stable across N re-imports."""
-    monkeypatch.setitem(
-        sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers()
-    )
+    monkeypatch.setitem(sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers())
 
     handlers_before = list(mpl_xontrib.post_command_handlers)
     for _ in range(5):
@@ -362,9 +352,7 @@ def test_no_postcommand_handler_leak_on_repeated_imports(mpl_xontrib, monkeypatc
 def test_xonsh_show_defaults_to_non_blocking(mpl_xontrib, monkeypatch):
     """The wrapper calls the underlying ``plt.show`` exactly once with
     ``block=False`` when the user passes no ``block`` kwarg."""
-    monkeypatch.setitem(
-        sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers()
-    )
+    monkeypatch.setitem(sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers())
     pyplot = _fake_pyplot()
     original = pyplot.show
 
@@ -402,9 +390,7 @@ def test_xonsh_show_does_not_retry_when_figure_active(mpl_xontrib, monkeypatch):
 def test_xonsh_show_respects_explicit_block_true(mpl_xontrib, monkeypatch):
     """If the caller explicitly passes ``block=True``, the wrapper must
     honor it instead of forcing non-blocking. Only the default is overridden."""
-    monkeypatch.setitem(
-        sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers()
-    )
+    monkeypatch.setitem(sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers())
     pyplot = _fake_pyplot()
     original = pyplot.show
 
