@@ -95,7 +95,12 @@ def figure_to_tight_array(fig, width, height, minimal=True):
     width = max(width, 2)
     height = max(height, 2)
 
-    # store the properties of the figure in order to restore it
+    # store the properties of the figure in order to restore it. We capture
+    # the size in *inches* rather than logical pixels: ``get_width_height()``
+    # returns ``inches * dpi / device_pixel_ratio`` on HiDPI displays (mpl
+    # ≥ 3.7), so ``w / dpi`` would be the original inches *divided by DPR*
+    # — restoration would shrink the figure by the DPR factor on Retina.
+    orig_size_inches = tuple(fig.get_size_inches())
     w, h = fig.canvas.get_width_height()
     if w <= 0 or h <= 0:
         raise ValueError(
@@ -115,15 +120,22 @@ def figure_to_tight_array(fig, width, height, minimal=True):
         fig.set_size_inches(width / dpi, height / dpi, forward=True)
         width, height = _physical_size(fig.canvas)
         # ``_physical_size`` can still return a degenerate value on exotic
-        # backends or 1×N canvases — keep margin math safe.
+        # backends or tiny canvases — keep margin math safe.
         width = max(width, 1)
-        height = max(height, 2)
+        height = max(height, 1)
 
         # remove all space between subplots
         fig.subplots_adjust(wspace=0, hspace=0)
-        # move all subplots to take the entirety of space in the figure
-        # leave only one line for top and bottom
-        fig.subplots_adjust(bottom=1 / height, top=1 - 1 / height, left=0, right=1)
+        # Leave a one-pixel band for tick labels at top and bottom *if* the
+        # canvas is tall enough for the strict inequality bottom < top to
+        # hold. For height == 2 we'd compute bottom=top=0.5 which matplotlib
+        # rejects with ``ValueError: bottom cannot be >= top``.
+        if height >= 3:
+            fig.subplots_adjust(
+                bottom=1 / height, top=1 - 1 / height, left=0, right=1
+            )
+        else:
+            fig.subplots_adjust(bottom=0, top=1, left=0, right=1)
 
         # Render with font.size=0 to suppress tick labels and other text. We
         # apply this via ``rc_context`` rather than mutating ``rcParams``
@@ -134,7 +146,10 @@ def figure_to_tight_array(fig, width, height, minimal=True):
         rc_overrides = {"font.size": 0}
     else:
         dpi = min([width * fig.dpi // w, height * fig.dpi // h])
-        dpi = max(int(dpi), 1)  # never set dpi to 0 — fig.dpi=0 is invalid
+        # Floor at a dpi high enough for freetype to compute a non-zero ppem
+        # for the figure's text — at dpi=1 the AGG backend raises
+        # ``invalid ppem value`` because ``font_size * dpi / 72`` rounds to 0.
+        dpi = max(int(dpi), 10)
         fig.dpi = dpi
         width, height = _physical_size(fig.canvas)
         width = max(width, 1)
@@ -146,7 +161,7 @@ def figure_to_tight_array(fig, width, height, minimal=True):
 
     if minimal:
         # reset the axis positions and figure dimensions
-        fig.set_size_inches(w / dpi, h / dpi, forward=True)
+        fig.set_size_inches(*orig_size_inches, forward=True)
         fig.subplots_adjust(**subplotpars)
     else:
         fig.dpi = dpi_fig
