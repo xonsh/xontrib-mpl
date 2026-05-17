@@ -1,9 +1,9 @@
-"""Tests for ``xontrib/mpl.py`` — alias registration, event handlers,
-and idempotency of pyplot monkey-patching.
+"""Tests for ``xontrib/mpl.py`` — load/unload symmetry, alias registration,
+event handlers, and idempotency of pyplot monkey-patching.
 
-These tests don't require ``matplotlib`` / ``numpy`` to be installed:
-they stub ``matplotlib._pylab_helpers`` via ``sys.modules`` and inject
-a fake ``XSH`` session before importing the xontrib.
+These tests don't require ``matplotlib`` / ``numpy`` to be installed: they
+stub ``matplotlib._pylab_helpers`` via ``sys.modules`` and inject a fake
+``XSH`` session before importing the xontrib.
 """
 
 import sys
@@ -42,72 +42,207 @@ def _fake_pylab_helpers(active_manager=None):
     return mod
 
 
+class _FakeEvent:
+    """Behaves like xonsh's ``Event``: callable to register a handler,
+    supports ``discard`` to remove one."""
+
+    def __init__(self):
+        self.handlers = []
+
+    def __call__(self, fn):
+        self.handlers.append(fn)
+        return fn
+
+    def discard(self, fn):
+        try:
+            self.handlers.remove(fn)
+        except ValueError:
+            pass
+
+
+class _FakeEnv(dict):
+    """Dict-backed stand-in for ``xonsh.environ.Env``: tracks ``register`` /
+    ``deregister`` calls and uses the registered default when no value is
+    explicitly set."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.registered = {}
+
+    def register(self, name, type=None, default=None, doc=None):
+        self.registered[name] = {"type": type, "default": default, "doc": doc}
+        self.setdefault(name, default)
+
+    def deregister(self, name):
+        self.registered.pop(name, None)
+
+
 @pytest.fixture
 def mpl_xontrib(monkeypatch):
-    """Replace ``XSH`` with a stub, freshly import ``xontrib.mpl``, and
-    expose the recorded event-handler registrations to the test."""
-    post_command_handlers = []
-    import_post_handlers = []
-
-    def register_postcommand(fn):
-        post_command_handlers.append(fn)
-        return fn
-
-    def register_import_post(fn):
-        import_post_handlers.append(fn)
-        return fn
-
+    """Replace ``XSH`` with a stub, freshly import ``xontrib.mpl``, call
+    ``_load_xontrib_``, and expose the recorded event-handler registrations
+    to the test. ``_unload_xontrib_`` runs on teardown."""
+    on_import_post = _FakeEvent()
+    on_postcommand = _FakeEvent()
     events = types.SimpleNamespace(
-        on_postcommand=register_postcommand,
-        on_import_post_exec_module=register_import_post,
+        on_postcommand=on_postcommand,
+        on_import_post_exec_module=on_import_post,
     )
     fake_xsh = types.SimpleNamespace(
         aliases={},
-        env={"XONSH_INTERACTIVE": True},
+        env=_FakeEnv({"XONSH_INTERACTIVE": True}),
         builtins=types.SimpleNamespace(events=events),
     )
 
     monkeypatch.setattr("xonsh.built_ins.XSH", fake_xsh)
-    # Force a fresh import so the module body runs against our stub.
     sys.modules.pop("xontrib.mpl", None)
 
     import xontrib.mpl as mpl_module
 
+    mpl_module._load_xontrib_(fake_xsh)
+
     yield types.SimpleNamespace(
         xsh=fake_xsh,
         module=mpl_module,
-        post_command_handlers=post_command_handlers,
-        import_post_handlers=import_post_handlers,
+        post_command_handlers=on_postcommand.handlers,
+        import_post_handlers=on_import_post.handlers,
+        on_postcommand=on_postcommand,
+        on_import_post=on_import_post,
     )
 
-    # Clean up so subsequent imports re-pick up the real XSH.
+    try:
+        mpl_module._unload_xontrib_(fake_xsh)
+    except Exception:
+        pass
     sys.modules.pop("xontrib.mpl", None)
     sys.modules.pop("matplotlib._pylab_helpers", None)
 
 
 # ---------------------------------------------------------------------------
-# Module-load side effects
+# Module body has no side effects
 # ---------------------------------------------------------------------------
 
 
-def test_alias_registered(mpl_xontrib):
-    """xontrib must register the ``mpl`` alias on import."""
+def test_import_alone_does_not_register_anything(monkeypatch):
+    """Plain ``import xontrib.mpl`` should NOT touch the xonsh session —
+    only ``_load_xontrib_`` should. This guards against the older pattern
+    where decorators ran at import-time."""
+    on_postcommand = _FakeEvent()
+    on_import_post = _FakeEvent()
+    fake_xsh = types.SimpleNamespace(
+        aliases={},
+        env=_FakeEnv({"XONSH_INTERACTIVE": True}),
+        builtins=types.SimpleNamespace(
+            events=types.SimpleNamespace(
+                on_postcommand=on_postcommand,
+                on_import_post_exec_module=on_import_post,
+            )
+        ),
+    )
+    monkeypatch.setattr("xonsh.built_ins.XSH", fake_xsh)
+    sys.modules.pop("xontrib.mpl", None)
+
+    import xontrib.mpl  # noqa: F401
+
+    assert fake_xsh.aliases == {}
+    assert on_postcommand.handlers == []
+    assert on_import_post.handlers == []
+    assert "XONTRIB_MPL_MINIMAL" not in fake_xsh.env.registered
+
+    sys.modules.pop("xontrib.mpl", None)
+
+
+# ---------------------------------------------------------------------------
+# _load_xontrib_
+# ---------------------------------------------------------------------------
+
+
+def test_load_registers_alias(mpl_xontrib):
     assert "mpl" in mpl_xontrib.xsh.aliases
+    assert mpl_xontrib.xsh.aliases["mpl"] is mpl_xontrib.module.mpl
 
 
-def test_redraw_registered_once_at_module_load(mpl_xontrib):
-    """``redraw_mpl_figure`` must be registered exactly once at xontrib
-    load — NOT inside ``interactive_pyplot``. This is the structural
-    invariant that prevents the historical handler-leak bug."""
-    handlers = mpl_xontrib.post_command_handlers
-    assert mpl_xontrib.module.redraw_mpl_figure in handlers
-    assert handlers.count(mpl_xontrib.module.redraw_mpl_figure) == 1
+def test_load_registers_env_var(mpl_xontrib):
+    """``XONTRIB_MPL_MINIMAL`` is declared with type/default/doc."""
+    reg = mpl_xontrib.xsh.env.registered
+    assert "XONTRIB_MPL_MINIMAL" in reg
+    assert reg["XONTRIB_MPL_MINIMAL"]["type"] == "bool"
+    assert reg["XONTRIB_MPL_MINIMAL"]["default"] is True
+    assert reg["XONTRIB_MPL_MINIMAL"]["doc"]
+    # Default value is materialized in the env mapping.
+    assert mpl_xontrib.xsh.env["XONTRIB_MPL_MINIMAL"] is True
 
 
-def test_import_post_handler_registered_once(mpl_xontrib):
-    handlers = mpl_xontrib.import_post_handlers
-    assert mpl_xontrib.module.interactive_pyplot in handlers
-    assert handlers.count(mpl_xontrib.module.interactive_pyplot) == 1
+def test_load_registers_handlers_exactly_once(mpl_xontrib):
+    handlers_post = mpl_xontrib.post_command_handlers
+    handlers_import = mpl_xontrib.import_post_handlers
+    assert handlers_post == [mpl_xontrib.module.redraw_mpl_figure]
+    assert handlers_import == [mpl_xontrib.module.interactive_pyplot]
+
+
+# ---------------------------------------------------------------------------
+# _unload_xontrib_
+# ---------------------------------------------------------------------------
+
+
+def test_unload_removes_alias(mpl_xontrib):
+    mpl_xontrib.module._unload_xontrib_(mpl_xontrib.xsh)
+    assert "mpl" not in mpl_xontrib.xsh.aliases
+
+
+def test_unload_discards_event_handlers(mpl_xontrib):
+    mpl_xontrib.module._unload_xontrib_(mpl_xontrib.xsh)
+    assert mpl_xontrib.post_command_handlers == []
+    assert mpl_xontrib.import_post_handlers == []
+
+
+def test_unload_deregisters_env_var(mpl_xontrib):
+    mpl_xontrib.module._unload_xontrib_(mpl_xontrib.xsh)
+    assert "XONTRIB_MPL_MINIMAL" not in mpl_xontrib.xsh.env.registered
+
+
+def test_unload_restores_patched_plt_show(mpl_xontrib, monkeypatch):
+    """If ``interactive_pyplot`` had monkey-patched ``plt.show``, unload
+    must restore the original."""
+    monkeypatch.setitem(
+        sys.modules, "matplotlib._pylab_helpers", _fake_pylab_helpers()
+    )
+    pyplot = _fake_pyplot()
+    monkeypatch.setitem(sys.modules, "matplotlib.pyplot", pyplot)
+    original_show = pyplot.show
+
+    mpl_xontrib.module.interactive_pyplot(module=pyplot)
+    assert pyplot.show is not original_show
+
+    mpl_xontrib.module._unload_xontrib_(mpl_xontrib.xsh)
+    assert pyplot.show is original_show
+
+
+def test_unload_is_safe_without_matplotlib(mpl_xontrib, monkeypatch):
+    """Unloading must not blow up if the user never imported matplotlib."""
+    monkeypatch.delitem(sys.modules, "matplotlib.pyplot", raising=False)
+    monkeypatch.delitem(sys.modules, "matplotlib._pylab_helpers", raising=False)
+    mpl_xontrib.module._unload_xontrib_(mpl_xontrib.xsh)
+    # No exception, alias gone.
+    assert "mpl" not in mpl_xontrib.xsh.aliases
+
+
+def test_load_unload_cycle_is_clean(mpl_xontrib):
+    """A load → unload → load → unload round trip should leave no
+    residue (no orphaned handlers, no double registrations)."""
+    mod = mpl_xontrib.module
+    xsh = mpl_xontrib.xsh
+
+    mod._unload_xontrib_(xsh)
+    mod._load_xontrib_(xsh)
+    mod._unload_xontrib_(xsh)
+    mod._load_xontrib_(xsh)
+
+    # After the final load, exactly one handler in each event.
+    assert mpl_xontrib.post_command_handlers == [mod.redraw_mpl_figure]
+    assert mpl_xontrib.import_post_handlers == [mod.interactive_pyplot]
+    assert "mpl" in xsh.aliases
+    assert "XONTRIB_MPL_MINIMAL" in xsh.env.registered
 
 
 # ---------------------------------------------------------------------------
@@ -174,6 +309,7 @@ def test_interactive_pyplot_patches_show(mpl_xontrib, monkeypatch):
 
     assert pyplot.show is not original_show
     assert getattr(pyplot.show, "_xontrib_mpl_patched", False) is True
+    assert pyplot.show._xontrib_mpl_orig_show is original_show
     pyplot.ion.assert_called_once()
 
 
@@ -213,8 +349,8 @@ def test_no_postcommand_handler_leak_on_repeated_imports(mpl_xontrib, monkeypatc
 
     assert handlers_before == handlers_after, (
         "interactive_pyplot must not register additional on_postcommand "
-        "handlers; instead, redraw_mpl_figure is registered once at "
-        "xontrib load time."
+        "handlers; instead, redraw_mpl_figure is registered once in "
+        "_load_xontrib_."
     )
 
 
