@@ -18,7 +18,17 @@ repos:
     rev: "v2.0.0" # Use the sha / tag you want to point at
     hooks:
       - id: mypy
-        args: [ "--allow-untyped-globals", "--ignore-missing-imports" ]
+        args: [
+          "--allow-untyped-globals",
+          "--ignore-missing-imports",
+          # ``xontrib/`` is a PEP 420 namespace package (shared with every
+          # other xontrib-* plugin), so we cannot add an ``__init__.py``.
+          # Without these two flags mypy 2.x discovers ``xontrib/mplhooks.py``
+          # twice — once as ``xontrib.mplhooks`` (from the project root) and
+          # once as ``mplhooks`` (via sys.path) — and aborts.
+          "--explicit-package-bases",
+          "--namespace-packages",
+        ]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
