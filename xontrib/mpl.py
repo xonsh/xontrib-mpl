@@ -29,7 +29,6 @@ def interactive_pyplot(module=None, **kwargs):
     # Since we are in interactive mode, let's monkey-patch plt.show
     # to try to never block.
     module.ion()
-    module._INSTALL_FIG_OBSERVER = False
     plt_show = module.show
 
     def xonsh_show(*args, **kwargs):
