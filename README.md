@@ -12,8 +12,8 @@ If you like the idea click ⭐ on the repo and <a href="https://twitter.com/inte
 To install use pip:
 
 ```bash
-xpip install xontrib-mpl
-# or: xpip install -U git+https://github.com/xonsh/xontrib-mpl
+xpip install -U git+https://github.com/xonsh/xontrib-mpl
+# todo: xpip install xontrib-mpl
 ```
 
 ## Usage
