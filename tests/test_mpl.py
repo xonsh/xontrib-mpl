@@ -5,7 +5,7 @@ np = pytest.importorskip("numpy")
 matplotlib = pytest.importorskip("matplotlib")
 plt = pytest.importorskip("matplotlib.pyplot")
 
-from xontrib import mplhooks
+from xontrib import mplhooks  # noqa: E402  -- must follow importorskip above
 
 skip_if_mpl2 = pytest.mark.skipif(
     matplotlib.__version__.startswith("2"), reason="Bug in matplotlib v2"
@@ -111,3 +111,50 @@ def test_mpl_preserve_standard():
     obs = mplhooks.figure_to_rgb_array(f)
     plt.close(f)
     assert np.all(exp == obs)
+
+
+def test_mpl_restores_font_size_on_exception():
+    """``rc_context`` must restore ``font.size`` even if rendering raises.
+    Before the rc_context refactor, ``rcParams.update`` would leak
+    ``font.size=0`` to the rest of the process on any failure inside the
+    render block."""
+    f = create_figure()
+    pre = matplotlib.rcParams["font.size"]
+
+    # Force the inner render to raise by handing a clearly impossible shape.
+    # We monkey-patch figure_to_rgb_array via the module namespace.
+    real = mplhooks.figure_to_rgb_array
+
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("synthetic render failure")
+
+    mplhooks.figure_to_rgb_array = boom
+    try:
+        with pytest.raises(RuntimeError, match="synthetic render failure"):
+            mplhooks.figure_to_tight_array(f, 100, 100, True)
+    finally:
+        mplhooks.figure_to_rgb_array = real
+        plt.close(f)
+
+    assert (
+        matplotlib.rcParams["font.size"] == pre
+    ), "font.size leaked out of figure_to_tight_array after an exception"
+
+
+@pytest.mark.parametrize("minimal", [True, False])
+@pytest.mark.parametrize("width,height", [(0, 0), (1, 1), (0, 24), (80, 0)])
+def test_figure_to_tight_array_handles_degenerate_terminal(width, height, minimal):
+    """Tiny / zero terminal sizes (CI, piped stdout, ``h -= 1`` underflow)
+    must not raise ZeroDivisionError. The output may be unusable but the
+    call should complete cleanly."""
+    f = create_figure()
+    try:
+        arr = mplhooks.figure_to_tight_array(f, width, height, minimal)
+        assert arr.ndim == 3
+        assert arr.shape[2] == 4
+        # After clamping inside the function, output must have non-zero
+        # dimensions on both axes.
+        assert arr.shape[0] > 0
+        assert arr.shape[1] > 0
+    finally:
+        plt.close(f)
