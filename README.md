@@ -28,7 +28,7 @@ Examples: https://youtu.be/uaje5I22kgE?t=1362
 Sample CPU utilisation once per second for 10 seconds, build a line chart,
 and render it right in the terminal — no GUI window needed:
 
-```bash
+```xsh
 xpip install psutil
 xontrib load mpl
 
